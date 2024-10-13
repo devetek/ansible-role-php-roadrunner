@@ -96,6 +96,7 @@
       src: "/tmp/{{ rr_filename }}/rr"
       dest: "/usr/bin"
       force: yes
+      remote_src: true
 
   # flush assets after installation 
   - name: Remove Road Runner artifact
