@@ -95,6 +95,7 @@
     ansible.builtin.copy:
       src: "/tmp/{{ rr_filename }}/rr"
       dest: "/usr/bin"
+      mode: a+x
       force: yes
       remote_src: true
 
