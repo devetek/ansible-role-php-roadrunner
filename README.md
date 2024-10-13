@@ -13,6 +13,18 @@ Role Variables
 
 List of variables in ansible-role-php-roadrunner:
 
+```sh
+rr_repo_base: "https://api.github.com/repos/roadrunner-server/roadrunner"
+rr_version: "latest"
+rr_token: ""
+rr_name: "roadrunner"
+rr_arch_type:
+  - { key: "aarch64", value: "arm64" }
+  - { key: "x86_64", value: "amd64" }
+  - { key: "arm64", value: "arm64" }
+```
+
+
 Dependencies
 ------------
 
@@ -22,6 +34,9 @@ Example Playbook
 ----------------
 
 ```sh
+- hosts: servers
+  roles:
+    - ansible-role-php-roadrunner
 ```
 
 License
@@ -32,7 +47,7 @@ MIT
 Author Information
 ------------------
 
-[Nedya Prakasa]. Build roles for [dPanel].
+[Nedya Prakasa]. Role created for [dPanel].
 
 [dPanel]: https://cloud.terpusat.com/
 [Nedya Prakasa]: https://github.com/prakasa1904
