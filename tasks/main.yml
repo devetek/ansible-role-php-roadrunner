@@ -1,0 +1,109 @@
+---
+  - name: Set {{ ansible_system | lower }} architecture
+    set_fact:
+      rr_arch: "{{ item.value }}"
+    with_items: "{{ rr_arch_type }}"
+    when: item.key == ansible_architecture
+
+  - name: Set github release URL
+    set_fact:
+      rr_version: "tags/{{ rr_version }}"
+    when: rr_version != "latest"
+
+  - name: Get release version with auttenticated user
+    ansible.builtin.uri:
+      url: "{{ rr_repo_base }}/releases/{{ rr_version }}"
+      return_content: true
+      headers:
+        Accept: "application/vnd.github+json"
+        Authorization: "Bearer {{ rr_token }}"
+      body_format: json
+    register: _github_release
+    until: _github_release.status == 200
+    retries: 5
+    when: rr_token != ""
+
+  - name: Get release version with public user
+    ansible.builtin.uri:
+      url: "{{ rr_repo_base }}/releases/{{ rr_version }}"
+      return_content: true
+      headers:
+        Accept: "application/vnd.github+json"
+      body_format: json
+    register: _github_release
+    until: _github_release.status == 200
+    retries: 5
+    when: rr_token == ""
+
+  - name: Set RoadRunner version
+    set_fact:
+      rr_get_version: "{{ _github_release.json.tag_name | replace('v','') }}"
+
+  # set file name
+  - name: Set artifact name for Linux and Darwin
+    set_fact:
+      rr_filename: "{{ rr_name }}-{{ rr_get_version }}-{{ ansible_system | lower }}-{{ rr_arch }}"
+    when: ansible_system != "Win32NT"
+
+  - name: Set artifact name for Windows
+    set_fact:
+      rr_filename: "{{ rr_name }}-{{ rr_get_version }}-{{ ansible_system | lower }}-{{ rr_arch }}"
+    when: ansible_system == "Win32NT"
+    
+  # set file with extension
+  - name: Set artifact name for Linux and Darwin
+    set_fact:
+      rr_file_with_extension: "{{ rr_filename }}.tar.gz"
+    when: ansible_system != "Win32NT"
+
+  - name: Set artifact name for Windows
+    set_fact:
+      rr_file_with_extension: "{{ rr_filename }}.zip"
+    when: ansible_system == "Win32NT"
+
+  - name: Set asset ID
+    set_fact:
+      asset_id: "{{ item.id }}"
+    with_items: "{{ _github_release.json.assets }}"
+    when: item.name == rr_file_with_extension
+
+  - name: Download RoadRunner artifact with authenticated user
+    ansible.builtin.get_url:
+      url: "{{ rr_repo_base }}/releases/assets/{{ asset_id }}"
+      dest: "/tmp/{{ rr_file_with_extension }}"
+      headers:
+        Authorization: "Bearer {{ rr_token }}"
+        Accept: "application/octet-stream"
+    when: rr_token != ""
+
+  - name: Download RoadRunner artifact with public user
+    ansible.builtin.get_url:
+      url: "{{ rr_repo_base }}/releases/assets/{{ asset_id }}"
+      dest: "/tmp/{{ rr_file_with_extension }}"
+      headers:
+        Accept: "application/octet-stream"
+    when: rr_token == ""
+
+  # require 'brew install gnu-tar' for macOS. Add as prerequisites later 
+  - name: Extract RoadRunner artifact
+    ansible.builtin.unarchive:
+      src: "/tmp/{{ rr_file_with_extension }}"
+      dest: "/tmp"
+      remote_src: yes
+  
+  - name: Copy RoadRunner binary to global binary
+    ansible.builtin.copy:
+      src: "/tmp/{{ rr_filename }}/rr"
+      dest: "/usr/bin"
+      force: yes
+
+  # flush assets after installation 
+  - name: Remove Road Runner artifact
+    ansible.builtin.file:
+      path: /tmp/{{ rr_file_with_extension }}
+      state: absent
+  
+  - name: Remove Road Runner extracted folder
+    ansible.builtin.file:
+      path: /tmp/{{ rr_filename }}
+      state: absent
